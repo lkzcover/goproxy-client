@@ -1,19 +1,16 @@
 package goproxy_client
 
 import (
-	"bytes"
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 
 	"github.com/lkzcover/easyaes"
 )
 
 func GetRequest(urlReq, queryReq string) ([]byte, error) {
 
-	resp, err := http.Get(urlReq + "/?target=" + queryReq)
+	resp, err := http.Get(urlReq + decryptedReq + queryReq)
 	if err != nil {
 		return nil, err
 	}
@@ -27,21 +24,9 @@ func GetRequest(urlReq, queryReq string) ([]byte, error) {
 
 func GetAesRequest(urlReq, queryReq, key string) ([]byte, error) {
 
-	urlReq = urlReq + "/?type=e&target="
+	target, iv, err := encryptTargetURLReq(queryReq, key)
 
-	iv := randomIV(len(key))
-
-	target, err := easyaes.EncryptAesCBCStaticIV([]byte(key), iv, []byte(queryReq))
-	if err != nil {
-		return nil, err
-	}
-
-	var splitByte bytes.Buffer
-
-	splitByte.Write(iv)
-	splitByte.Write(target)
-
-	urlReq = urlReq + url.QueryEscape(base64.StdEncoding.EncodeToString(splitByte.Bytes()))
+	urlReq = urlReq + encryptedReq + target
 
 	resp, err := http.Get(urlReq)
 	if err != nil {
@@ -57,7 +42,7 @@ func GetAesRequest(urlReq, queryReq, key string) ([]byte, error) {
 		return nil, err
 	}
 
-	decryptResp, err := easyaes.DecryptAesCBCStaticIV([]byte(key), []byte(iv), respBody)
+	decryptResp, err := easyaes.DecryptAesCBCStaticIV([]byte(key), iv, respBody)
 	if err != nil {
 		return nil, err
 	}
